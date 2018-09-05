@@ -1,0 +1,141 @@
+<script src="../simpletest.js"></script>
+<script>
+  (function () {
+    var libraryStorage = {};
+
+    function librarySystem(libraryName, dependencies, callback) {
+      if (arguments.length > 1) {
+        libraryStorage[libraryName] = {
+          callback: callback,
+          dependencies: dependencies
+        };
+      } else {
+        if ('cache' in libraryStorage[libraryName]) {
+          return libraryStorage[libraryName].cache;
+        } else {
+          return loadLibrarySystem(libraryName);
+        }
+      }
+    }
+
+    function loadLibrarySystem(libraryName) {
+      if (libraryStorage[libraryName].dependencies.length) {
+        var callbackArgs = libraryStorage[libraryName].dependencies.map(function (dependency) {
+          return loadLibrarySystem(dependency);
+        });
+
+        libraryStorage[libraryName].cache = libraryStorage[libraryName].callback.apply(null, callbackArgs);
+
+        return libraryStorage[libraryName].cache;
+      } else {//Base case
+        libraryStorage[libraryName].cache = libraryStorage[libraryName].callback();
+
+        return libraryStorage[libraryName].cache;
+      }
+    }
+
+    window.librarySystem = librarySystem;
+  })();
+
+  tests({
+    '1.It should work with one dependency.': function () {
+      librarySystem('dependency', [], function () {
+        return 'loaded dependency';
+      });
+
+      librarySystem('app', ['dependency'], function (dependency) {
+        return 'app with ' + dependency;
+      });
+
+      eq(librarySystem('app'), 'app with loaded dependency');
+    },
+    '2.It should work with multiple dependencies.': function () {
+      librarySystem('name', [], function () {
+        return 'Gordon';
+      });
+
+      librarySystem('company', [], function () {
+        return 'Watch and Code';
+      });
+
+      librarySystem('workBlurb', ['name', 'company'], function (name, company) {
+        return name + ' works at ' + company;
+      });
+
+      eq(librarySystem('workBlurb'), 'Gordon works at Watch and Code');
+    },
+    '3.It should work when dependencies are added later.': function () {
+      librarySystem('workblurb', ['person', 'place'], function (person, place) {
+        return person + ' works at ' + place;
+      });
+
+      librarySystem('person', [], function () {
+        return 'Gordon';
+      });
+
+      librarySystem('place', [], function () {
+        return 'Watch and Code';
+      });
+
+      eq(librarySystem('workblurb'), 'Gordon works at Watch and Code');
+    },
+    '4.It should call the libraryName callback once and cache it for later use.': function () {
+      var counterOne = 0;
+      var counterTwo = 0;
+
+      librarySystem('food', ['cuisine'], function (cuisine) {
+        counterOne++;
+        return 'I want to try ' + cuisine;
+      });
+
+      librarySystem('cuisine', [], function () {
+        counterTwo++;
+        return 'mediterranean food.';
+      });
+
+      eq(librarySystem('food'), 'I want to try mediterranean food.');
+      librarySystem('food');
+      librarySystem('cuisine');
+      eq(counterOne, 1);
+      eq(counterTwo, 1);
+    },
+    '5.It should work with nested dependencies.': function () {
+      librarySystem('goal', ['leisure'], function (leisure) {
+        return leisure + ' for being stronger.';
+      });
+
+      librarySystem('leisure', ['hobby'], function (hobby) {
+        return 'I like ' + hobby;
+      });
+
+      librarySystem('hobby', [], function () {
+        return 'rock climbing';
+      });
+
+      eq(librarySystem('goal'), 'I like rock climbing for being stronger.');
+    },
+    '6.It should work with multiple nested dependencies.': function () {
+      librarySystem('objective', ['position', 'fun'], function (position, fun) {
+        return 'I want to work as a ' + position + ' In my free time, ' + fun;
+      });
+
+      librarySystem('position', [], function () {
+        return 'front-end developer.'
+      });
+
+      librarySystem('fun', ['activity', 'destination'], function (activity, destination) {
+        return 'I enjoy ' + activity + 'I want to travel to ' + destination;
+      });
+
+      librarySystem('activity', [], function () {
+        return 'rock climbing, hiking and sailing. ';
+      });
+
+      librarySystem('destination', [], function () {
+        return 'Jordan.'
+      });
+      
+      eq(librarySystem('objective'), 'I want to work as a front-end developer. In my free time, I enjoy rock climbing, hiking and sailing. I want to travel to Jordan.');
+    }
+  });
+</script>
